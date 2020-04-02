@@ -624,13 +624,19 @@ exossosaml() {
 
 # @Public: Clone eXo-Addons Repository
 exocladd() {
-	git clone "git@github.com:exo-addons/$1.git"
+	[ -d "$1" ] || git clone "git@github.com:exo-addons/$1.git"
 	cd $1
 }
 
 # @Public: Clone eXoPlatform Repository
 exoclplf() {
-	git clone "git@github.com:exoplatform/$1.git"
+	[ -d "$1" ] || git clone "git@github.com:exoplatform/$1.git"
+	cd $1
+}
+
+# @Public: Clone Meeds-io Repository
+exoclmeeds() {
+	[ -d "$1" ] || git clone "git@github.com:meeds-io/$1.git"
 	cd $1
 }
 
@@ -648,15 +654,14 @@ exodevinject() {
 		echo "Error, Please make sure you are working on Tomcat Server!"
 		return
 	fi
-	$SRVDIR/stop_eXo.sh &>/dev/null
-	kill -9 $(lsof -t -i:8080) &>/dev/null
+    exodevstop
 	echo "Injecting $1 File..."
 	if [[ ${1#*.} == "war" ]]; then
 		cp -f "$(realpath $1)" "$SRVDIR/webapps/"
 		rm "$SRVDIR/webapps/${1%*.}"
 	fi
 	if [[ ${1#*.} == "jar" ]]; then
-		cp -rf "$(realpath $1)" "$SRVDIR/lib/"
+		cp -f "$(realpath $1)" "$SRVDIR/lib/"
 	fi
 	exoprint_suc "$1 has been injected successfully!"
 }
@@ -684,12 +689,22 @@ exodevstop() {
 		exoprint_err "Please make sure you are working on Tomcat Server!"
 		return
 	fi
-	"$SRVDIR/stop_eXo.sh" &
-	kill -9 $(lsof -t -i:8080) &>/dev/null
+	if [ -f $SRVDIR/temp/catalina.pid ]; then 
+	  if kill -15 $(cat "$SRVDIR/temp/catalina.pid") 2>&1 >/dev/null; then
+	    exoprint_suc "eXo Server Stopped!" 
+	  elif kill -9 $(cat "$SRVDIR/temp/catalina.pid"); then 
+	    exoprint_suc "eXo Server PID Killed!" 
+	  else
+	    exoprint_err "Could not shutdown the server!"
+		return 1
+	  fi
+	else
+	  exoprint_suc "Server already stopped"
+	fi	
 }
 
 # @Public: Restart selected eXo Server instance
-devrestart() {
+exodevrestart() {
 	exodevstop
 	exodevstart
 }
@@ -1526,6 +1541,9 @@ exohelp() {
 	echo -e "       $(tput setaf 6)Note :$(tput init)      [Mandatory] Set $(tput setaf 3)SRVDIR$(tput init) value containing the server Path"
 	echo "-- exodevstop:"
 	echo -e "$(tput setaf 2)       Usage:$(tput init)      exodevstop Stop eXo Platform Developement Instance."
+	echo -e "       $(tput setaf 6)Note :$(tput init)      [Mandatory] Set $(tput setaf 3)SRVDIR$(tput init) value containing the server Path"
+	echo "-- exodevrestart:"
+	echo -e "$(tput setaf 2)       Usage:$(tput init)      exodevrestart: Restart eXo Platform Developement Instance."
 	echo -e "       $(tput setaf 6)Note :$(tput init)      [Mandatory] Set $(tput setaf 3)SRVDIR$(tput init) value containing the server Path"
 	echo "-- exodevinject:"
 	echo -e "$(tput setaf 2)       Usage:$(tput init)      exodevinject: Inject war & jar file into eXo platform."
