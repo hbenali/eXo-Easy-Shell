@@ -367,10 +367,14 @@ exostart() {
 
 # @Public: Stop eXo Platform Server Instance
 exostop() {
-	if [[ $1 == "--force" ]]; then
+	if [[ $1 == "--force" ]] || [[ $1 == "-f" ]]; then
 		exec_exo_pid "kill -9" && exoprint_suc "Server process has been killed!"
 	elif isTomcat; then
-		./stop_eXo.sh $* || exoprint_err "Error while stopping eXo Tomcat Server, You can call $0 --force to kill its process ID"
+		if [ ! -f temp/catalina.pid ]; then
+			exoprint_err "Server is not started!"
+			return
+		fi
+		kill -15 $(cat temp/catalina.pid) 2>/dev/null || exoprint_err "Error while stopping eXo Tomcat Server, You can call $0 --force to kill its process ID"
 	else
 		exoprint_err "Please make sure you are working on eXo Tomcat Server Folder!"
 	fi
@@ -1241,8 +1245,8 @@ exogettribelog() {
 	local cred=$(read_credentials)
 	[ $? -eq 1 ] && return
 	local LOGFILENAME="platform-$(date +'%d-%m-%Y--%H:%M:%S').log"
-    local TRIBELOGURL="$EXOCOMMUNITYLOGURL"
-	[[ $1 =~ ^--(preprod|dev|qa)$ ]] && local TRIBESUFFIX=$(echo $1 | sed 's/--//g') && TRIBELOGURL=$(echo $TRIBELOGURL | eval sed 's/community/community-$TRIBESUFFIX/g') 
+	local TRIBELOGURL="$EXOCOMMUNITYLOGURL"
+	[[ $1 =~ ^--(preprod|dev|qa)$ ]] && local TRIBESUFFIX=$(echo $1 | sed 's/--//g') && TRIBELOGURL=$(echo $TRIBELOGURL | eval sed 's/community/community-$TRIBESUFFIX/g')
 	local LOGFULLURI="https://$cred@$TRIBELOGURL"
 	if ! wget --user-agent="Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)" "$LOGFULLURI" -O "$LOGFILENAME" --progress=bar:force 2>&1 | progressfilt; then
 		exoprint_err "Could not download $LOGFILENAME !"
@@ -1267,8 +1271,8 @@ exosynctribelog() {
 	store_credentials
 	local cred=$(read_credentials)
 	[ $? -eq 1 ] && return
-    local TRIBELOGURL="$EXOCOMMUNITYLOGURL"
-	[[ $1 =~ ^--(preprod|dev|qa)$ ]] && local TRIBESUFFIX=$(echo $1 | sed 's/--//g') && TRIBELOGURL=$(echo $TRIBELOGURL | eval sed 's/community/community-$TRIBESUFFIX/g') 
+	local TRIBELOGURL="$EXOCOMMUNITYLOGURL"
+	[[ $1 =~ ^--(preprod|dev|qa)$ ]] && local TRIBESUFFIX=$(echo $1 | sed 's/--//g') && TRIBELOGURL=$(echo $TRIBELOGURL | eval sed 's/community/community-$TRIBESUFFIX/g')
 	local LOGFULLURI="https://$cred@$TRIBELOGURL"
 	if [ ! -z "$LOGFILTER" ]; then
 		if [[ "$LOGFILTER" == "INFO" ]] || [[ "$LOGFILTER" == "WARN" ]] || [[ "$LOGFILTER" == "ERROR" ]]; then
@@ -1288,7 +1292,7 @@ exosynctribelog() {
 # @Public: Get eXo Tribe PLF version
 exogettribeversion() {
 	local TRIBEURL="$EXOCOMMUNITYDN"
-	[[ $1 =~ ^--(preprod|dev|qa)$ ]] && local TRIBESUFFIX=$(echo $1 | sed 's/--//g') && TRIBEURL=$(echo $TRIBEURL | eval sed 's/community/community-$TRIBESUFFIX/g') 
+	[[ $1 =~ ^--(preprod|dev|qa)$ ]] && local TRIBESUFFIX=$(echo $1 | sed 's/--//g') && TRIBEURL=$(echo $TRIBEURL | eval sed 's/community/community-$TRIBESUFFIX/g')
 	local TRIBEVERSION=$(wget -qO- https://$TRIBEURL/rest/platform/info | grep -o -P '(?<="platformVersion":").*(?=","platformBuildNumber)')
 	if [ -z "$TRIBEVERSION" ]; then
 		exoprint_err "Could not get eXo Tribe Version !"
@@ -1471,23 +1475,24 @@ exojrebel() {
 
 # @Public: Fetch all local repositories
 exogitfetch() {
-  local CURRENT_DIR="$(pwd)"
-  read -p "Please specify the directoy having local repositories [ Default: Current ] :" CURRENT_DIR
-  [ -z $CURRENT_DIR -o ! -d $CURRENT_DIR ] &&  CURRENT_DIR="$(pwd)"
-  local LOG_FILE=""
-  read -p "Please specify log file path [ Default: none ] :" LOG_FILE
-  [ -z $LOG_FILE ] && LOG_FILE="/dev/null" || [ -e $LOG_FILE ] || touch $LOG_FILE || {
-  exoprint_err "Could not write $LOG_FILE file ! Please check permissions" && return
-  }
-  [ $LOG_FILE == "/dev/null" ] || mkdir -p $(dirname $LOG_FILE) 2>&1 &> /dev/null
-  for i in $(ls -d $CURRENT_DIR/*); do
-  if [ ! -d $i/.git ]; then
-  local UP_STATE="$i isn't a local repository, so skipped";
-   else
-  local UP_STATE="Updating $i..."; git -C $i fetch --all 2>&1 &>/dev/null && UP_STATE=$UP_STATE"OK" || UP_STATE=$UP_STATE"KO"
-  fi
-  echo "$(date '+%Y-%m-%d %H:%M:%S') | $UP_STATE" >> $LOG_FILE
-  done;
+	local CURRENT_DIR="$(pwd)"
+	read -p "Please specify the directoy having local repositories [ Default: Current ] :" CURRENT_DIR
+	[ -z $CURRENT_DIR -o ! -d $CURRENT_DIR ] && CURRENT_DIR="$(pwd)"
+	local LOG_FILE=""
+	read -p "Please specify log file path [ Default: none ] :" LOG_FILE
+	[ -z $LOG_FILE ] && LOG_FILE="/dev/null" || [ -e $LOG_FILE ] || touch $LOG_FILE || {
+		exoprint_err "Could not write $LOG_FILE file ! Please check permissions" && return
+	}
+	[ $LOG_FILE == "/dev/null" ] || mkdir -p $(dirname $LOG_FILE) 2>&1 &>/dev/null
+	for i in $(ls -d $CURRENT_DIR/*); do
+		if [ ! -d $i/.git ]; then
+			local UP_STATE="$i isn't a local repository, so skipped"
+		else
+			local UP_STATE="Updating $i..."
+			git -C $i fetch --all 2>&1 &>/dev/null && UP_STATE=$UP_STATE"OK" || UP_STATE=$UP_STATE"KO"
+		fi
+		echo "$(date '+%Y-%m-%d %H:%M:%S') | $UP_STATE" >>$LOG_FILE
+	done
 }
 
 # @Public: Show eXo-Easy-Shell Help Menu
@@ -1567,8 +1572,8 @@ exohelp() {
 	echo -e "$(tput setaf 2)       Usage:$(tput init)      exoupgrade: Perform the eXo Upgrade Process to a selected version"
 	echo "-- exojrebel:"
 	echo -e "$(tput setaf 2)       Usage:$(tput init)      exojrebel: Integrate JRebel Remote hot deployment with eXo Platform Server"
-  echo "-- exogitfetch:"
-  echo -e "$(tput setaf 2)       Usage:$(tput init)      exogitfetch: Download all local git repositories updates"
+	echo "-- exogitfetch:"
+	echo -e "$(tput setaf 2)       Usage:$(tput init)      exogitfetch: Download all local git repositories updates"
 }
 
 # <----------------- GUI FUNs ------------------------------------------------->
@@ -1600,7 +1605,7 @@ colorize_log() {
 # <----------------- INTERNAL FUNs ------------------------------------------------->
 # @Private: Check command is installed
 check_command() {
-	hash $1 2>&1 &> /dev/null
+	hash $1 2>&1 &>/dev/null
 }
 
 # @Private: Assert given command is installed
