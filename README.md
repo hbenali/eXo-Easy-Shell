@@ -6,7 +6,7 @@ HOW TO INSTALL:
 
 1- Clone the repository
 
-2- Run ./install.sh
+2- Run ./INSTALL
 
 3- Open new Terminal Tab or run source ~/.exocmd/custom.sh
 
