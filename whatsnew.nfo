@@ -5,4 +5,5 @@
 6    | 04/11/2019 |  UPDATE   |       exoidlap      | Add Active Directory Support + Configuration Selection
 7    | 04/11/2019 |    Add    |      exojconsole    | Show JMX Console for eXo Server
 8    | 04/11/2019 |    Add    |      exoupgrade     | Upgrade eXo Platform to selected version
-9    | 11/01/2019 |    Add    |      exojrebel      | Integrate JRebel Remote hot deployment with eXo Platform Server
+9    | 11/01/2020 |    Add    |      exojrebel      | Integrate JRebel Remote hot deployment with eXo Platform Server
+9    | 19/04/2020 |    Add    |exoclmeeds & exoclall| Clone Meeds-io Repository

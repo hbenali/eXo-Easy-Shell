@@ -640,6 +640,25 @@ exoclmeeds() {
 	cd $1
 }
 
+# @Public: Clone Repository with all eXo repositories
+exoclall() {
+	local orgs="exoplatform exodev exo-addons meeds-io"
+	[ -d "$1" ] && exoprint_err "Repository $1 already exist!" && return
+	repo="$1"
+	for org in ${orgs}; do
+		if [ ! -z "$(git ls-remote --heads git@github.com:$org/$repo.git 2>/dev/null)" ]; then
+			if [ -d "$1/.git" ]; then
+				git --git-dir=$repo/.git --work-tree=$repo remote add $org git@github.com:$org/$repo.git
+			else
+			    git clone git@github.com:$org/$repo.git
+                git --git-dir=$repo/.git --work-tree=$repo remote rename origin $org
+			fi
+		fi
+	done
+	git --git-dir=$repo/.git --work-tree=$repo pull --all --tags &>/dev/null
+	[ -d "$repo" ] && cd $repo
+}
+
 # @Public: Inject JAR/WAR to selected eXo Server instance
 exodevinject() {
 	if [[ -z "$1" ]]; then
@@ -654,7 +673,7 @@ exodevinject() {
 		echo "Error, Please make sure you are working on Tomcat Server!"
 		return
 	fi
-    exodevstop
+	exodevstop
 	echo "Injecting $1 File..."
 	if [[ ${1#*.} == "war" ]]; then
 		cp -f "$(realpath $1)" "$SRVDIR/webapps/"
@@ -689,18 +708,18 @@ exodevstop() {
 		exoprint_err "Please make sure you are working on Tomcat Server!"
 		return
 	fi
-	if [ -f $SRVDIR/temp/catalina.pid ]; then 
-	  if kill -15 $(cat "$SRVDIR/temp/catalina.pid") 2>&1 >/dev/null; then
-	    exoprint_suc "eXo Server Stopped!" 
-	  elif kill -9 $(cat "$SRVDIR/temp/catalina.pid"); then 
-	    exoprint_suc "eXo Server PID Killed!" 
-	  else
-	    exoprint_err "Could not shutdown the server!"
-		return 1
-	  fi
+	if [ -f $SRVDIR/temp/catalina.pid ]; then
+		if kill -15 $(cat "$SRVDIR/temp/catalina.pid") 2>&1 >/dev/null; then
+			exoprint_suc "eXo Server Stopped!"
+		elif kill -9 $(cat "$SRVDIR/temp/catalina.pid"); then
+			exoprint_suc "eXo Server PID Killed!"
+		else
+			exoprint_err "Could not shutdown the server!"
+			return 1
+		fi
 	else
-	  exoprint_suc "Server already stopped"
-	fi	
+		exoprint_suc "Server already stopped"
+	fi
 }
 
 # @Public: Restart selected eXo Server instance
@@ -1572,6 +1591,10 @@ exohelp() {
 	echo -e "$(tput setaf 2)       Usage:$(tput init)      exoclplf <repo_name>: Clone eXoplatform Github Repository."
 	echo "-- exocladd:"
 	echo -e "$(tput setaf 2)       Usage:$(tput init)      exocladd <repo_name>: Clone eXo-addons Github Repository."
+	echo "-- exoclmeeds:"
+	echo -e "$(tput setaf 2)       Usage:$(tput init)      exoclmeeds <repo_name>: Clone Meeds-io Github Repository."
+	echo "-- exoclall:"
+	echo -e "$(tput setaf 2)       Usage:$(tput init)      exoclall <repo_name>: Clone Github Repository with all eXo Organizations."
 	echo "-- exoupdate:"
 	echo -e "$(tput setaf 2)       Usage:$(tput init)      exoupdate: Update eXo-Easy-Shell"
 	echo "-- exogettribelog:"
