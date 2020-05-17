@@ -1487,6 +1487,7 @@ exojrebel() {
 	fi
 	exoprint_op "Looking for Jetbrains IDE instance(s)"
 	local JetbrainsInstances=($(ls -d $HOME/.IntelliJIdea* 2>/dev/null))
+	[ -z $JetbrainsInstances ] && JetbrainsInstances=($(ls -d $HOME/.local/share/JetBrains/IntelliJIdea* 2>/dev/null))
 	if [ -z $JetbrainsInstances ]; then
 		exoprint_err "Jetbrains IntelliJ Idea is not installed !"
 		return
