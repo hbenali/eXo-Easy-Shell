@@ -7,3 +7,4 @@
 8    | 04/11/2019 |    Add    |      exoupgrade     | Upgrade eXo Platform to selected version
 9    | 11/01/2020 |    Add    |      exojrebel      | Integrate JRebel Remote hot deployment with eXo Platform Server
 9    | 19/04/2020 |    Add    |exoclmeeds & exoclall| Clone Meeds-io Repository
+10   | 18/05/2020 |  UPDATE   |    exoinjectusers   | Add --truenames(-t) && --formalusernames 

@@ -650,8 +650,8 @@ exoclall() {
 			if [ -d "$1/.git" ]; then
 				git --git-dir=$repo/.git --work-tree=$repo remote add $org git@github.com:$org/$repo.git
 			else
-			    git clone git@github.com:$org/$repo.git
-                git --git-dir=$repo/.git --work-tree=$repo remote rename origin $org
+				git clone git@github.com:$org/$repo.git
+				git --git-dir=$repo/.git --work-tree=$repo remote rename origin $org
 			fi
 		fi
 	done
@@ -1115,6 +1115,9 @@ usageUsers() {
 	echo "    -c| --count          number of users to create"
 	echo "    -o| --offset         start number of users index to create Default: 1"
 	echo "    -U| --uppercase      Uppercased User Full Name Default: unused"
+	echo "    -t| --truenames      Use true name ( require internet connections) Default: unused"
+	echo "    -f| --formalusernames Use formal username (firstname.lastname) Default: unused"
+
 	echo ""
 }
 
@@ -1136,8 +1139,8 @@ usageSpaces() {
 
 # @Public: Inject Users to eXo Server Instance
 exoinjectusers() {
-	local SHORT=HPpscvuaoU
-	local LONG=host,port,userprefix,count,verbose,userpassword,auth,offset,uppercase
+	local SHORT=HPpscvuaoUtf
+	local LONG=host,port,userprefix,count,verbose,userpassword,auth,offset,uppercase,truenames,formalusernames
 	if [[ $1 == "-h" ]] || [[ "$1" == "--help" ]]; then
 		usageUsers
 		return
@@ -1164,6 +1167,14 @@ exoinjectusers() {
 			;;
 		-U | --uppercase)
 			local uppercase=1
+			shift
+			;;
+		-t | --truenames)
+			local truenames=1
+			shift
+			;;
+		-f | --formalusernames)
+			local formalusernames=1
 			shift
 			;;
 		-c | --count)
@@ -1203,6 +1214,9 @@ exoinjectusers() {
 		exoprint_err "Missing number of profiles to create (-c)"
 		return
 	fi
+	if [ $formalusernames == "1" ] && [ ! -z "$userprf" ]; then
+       exoprint_warn "Specified userprefix will ignore since the \"formalusernames\" option is activated!"
+	fi
 	if [ -z "$host" ]; then host="localhost"; fi
 	if [ -z "$port" ]; then port="8080"; fi
 	if [ -z "$userprf" ]; then userprf="user"; fi
@@ -1222,18 +1236,30 @@ exoinjectusers() {
 	fi
 	local userIndex=$startFrom
 	until [ $userIndex -gt $nbOfUsers ]; do
-		local firstname=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
-		local lastname=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
+		if [ $truenames == "1" ]; then
+			local personJson=$(wget -qO- https://randomuser.me/api/)
+			if [ -z "$personJson" ]; then
+				exoprint_err "Could not get random user details!"
+				return
+			fi
+			local firstname=$(echo $personJson | jq '.results[0].name.first' | tr -d '"')
+			local lastname=$(echo $personJson | jq '.results[0].name.last' | tr -d '"')
+		else
+			local firstname=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
+			local lastname=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
+		fi
 		local url="http://$host:$port/rest/private/v1/social/users"
 		local data="{\"id\": \"$userIndex\","
-		data+="\"username\": \"$userprf$userIndex\","
+		local username="$userprf$userIndex"
+		[ $formalusernames == "1" ] && username="$(echo $firstname.$lastname| sed 's/./\L&/g')"
+		data+="\"username\": \"$username\","
 		data+="\"lastname\": \"$lastname\","
 		data+="\"firstname\": \"$firstname\","
-		data+="\"fullname\": \"$userprf$userIndex\","
+		data+="\"fullname\": \"$username\","
 		data+="\"password\": \"$passwd\","
-		data+="\"email\": \"$userprf$userIndex@exomail.org\"}"
+		data+="\"email\": \"$username@exomail.org\"}"
 		local curlCmd="curl -s -w '%{response_code}' -X POST -u "$auth" -H \"Content-Type: application/json\" --data '$data' $url | grep -o  '[1-4][0-9][0-9]'"
-		printf "Creating user ID=$userprf$userIndex, Full Name=\"$(tput setaf 12)$firstname $lastname$(tput init)\"..."
+		printf "Creating user ID=$username, Full Name=\"$(tput setaf 12)$firstname $lastname$(tput init)\"..."
 		local httprs=$(eval $curlCmd)
 		if [[ "$httprs" =~ "200" ]]; then echo -e "$(tput setaf 2)OK$(tput init)"; else echo -e "$(tput setaf 1)Fail$(tput init)"; fi
 		userIndex=$(($userIndex + 1))
