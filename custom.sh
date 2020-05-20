@@ -996,7 +996,7 @@ exoldapinject() {
 # @Public: Inject Spaces to eXo Server Instance
 exoinjectspaces() {
 	local SHORT=HpscvarU
-	local LONG=host,port,spaceprefix,count,verbose,auth,visibility,registration,uppercase
+	local LONG=host,port,spaceprefix,count,verbose,auth,visibility,registration,uppercase,useSSL
 	if [[ $1 == "-h" ]] || [[ "$1" == "--help" ]]; then
 		usageSpaces
 		return
@@ -1048,6 +1048,10 @@ exoinjectspaces() {
 			local nbOfSpaces="$2"
 			shift 2
 			;;
+		--useSSL)
+			local useSSL="1"
+			shift
+			;;
 		-a | --auth)
 			local auth="$2"
 			shift 2
@@ -1067,7 +1071,9 @@ exoinjectspaces() {
 	fi
 
 	if [ -z "$host" ]; then host="localhost"; fi
-	if [ -z "$port" ]; then port="8080"; fi
+	if [ -z ${port} ]; then
+		[ ! -z ${useSSL} ] && port="443" || port="8080"
+	fi
 	if [ -z "$spaceprefix" ]; then spaceprefix="space"; fi
 	if [ -z "$auth" ]; then auth="root:gtn"; fi
 	if [ -z "$visibility" ]; then visibility="public"; fi
@@ -1085,10 +1091,9 @@ exoinjectspaces() {
 	fi
 
 	local spaceIndex=1
-
+	[ ! -z $useSSL ] && local url="https://$host:$port/rest/private/v1/social/users" || local url="http://$host:$port/rest/private/v1/social/users"
 	until [ $spaceIndex -gt $nbOfSpaces ]; do
 		local displayName=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
-		local url="http://$host:$port/rest/private/v1/social/spaces"
 		local data="{\"displayName\": \"$displayName\","
 		data+="\"description\": \"$spaceprefix$spaceIndex\","
 		data+="\"visibility\": \"$visibility\","
@@ -1106,18 +1111,18 @@ exoinjectspaces() {
 usageUsers() {
 	echo " Usage : exoinjectusers -c <nb_of_users> [options]"
 	echo ""
-	echo "    -h| --help           help"
-	echo "    -H| --host           server hostname Default: localhost"
-	echo "    -p| --port           server port Default: 8080"
-	echo "    -u| --userprefix     prefix of the injected users Default: user"
-	echo "    -P| --userpassword   password of the injected users Default: 123456"
-	echo "    -a| --auth           Root credentials Default: root:gtn"
-	echo "    -c| --count          number of users to create"
-	echo "    -o| --offset         start number of users index to create Default: 1"
-	echo "    -U| --uppercase      Uppercased User Full Name Default: unused"
-	echo "    -t| --truenames      Use true name ( require internet connections) Default: unused"
+	echo "    -h| --help            help"
+	echo "    -H| --host            server hostname Default: localhost"
+	echo "    -p| --port            server port Default: 8080"
+	echo "    -u| --userprefix      prefix of the injected users Default: user"
+	echo "    -P| --userpassword    password of the injected users Default: 123456"
+	echo "    -a| --auth            Root credentials Default: root:gtn"
+	echo "    -c| --count           number of users to create"
+	echo "    -o| --offset          start number of users index to create Default: 1"
+	echo "    -U| --uppercase       Uppercased User Full Name Default: unused"
+	echo "    -t| --truenames       Use true name ( require internet connections) Default: unused"
 	echo "    -f| --formalusernames Use formal username (firstname.lastname) Default: unused"
-
+	echo "    -s| --useSSL          Use https schema."
 	echo ""
 }
 
@@ -1134,13 +1139,14 @@ usageSpaces() {
 	echo "    -r| --registration   Space registration Default: open"
 	echo "    -v| --visibility     Space visibility Default: public"
 	echo "    -U| --uppercase      Uppercased Space displayName Default: unused"
+	echo "    -s| --useSSL         Use https schema."
 	echo ""
 }
 
 # @Public: Inject Users to eXo Server Instance
 exoinjectusers() {
 	local SHORT=HPpscvuaoUtf
-	local LONG=host,port,userprefix,count,verbose,userpassword,auth,offset,uppercase,truenames,formalusernames
+	local LONG=host,port,userprefix,count,verbose,userpassword,auth,offset,uppercase,truenames,formalusernames,useSSL
 	if [[ $1 == "-h" ]] || [[ "$1" == "--help" ]]; then
 		usageUsers
 		return
@@ -1164,6 +1170,10 @@ exoinjectusers() {
 		-u | --userprefix)
 			local userprf="$2"
 			shift 2
+			;;
+		--useSSL)
+			local useSSL="1"
+			shift
 			;;
 		-U | --uppercase)
 			local uppercase=1
@@ -1214,11 +1224,13 @@ exoinjectusers() {
 		exoprint_err "Missing number of profiles to create (-c)"
 		return
 	fi
-	if [ $formalusernames == "1" ] && [ ! -z "$userprf" ]; then
-       exoprint_warn "Specified userprefix will ignore since the \"formalusernames\" option is activated!"
+	if [ -z $formalusernames ] && [ ! -z "$userprf" ]; then
+		exoprint_warn "Specified userprefix will ignore since the \"formalusernames\" option is activated!"
 	fi
 	if [ -z "$host" ]; then host="localhost"; fi
-	if [ -z "$port" ]; then port="8080"; fi
+	if [ -z ${port} ]; then
+		[ ! -z ${useSSL} ] && port="443" || port="8080"
+	fi
 	if [ -z "$userprf" ]; then userprf="user"; fi
 	if [ -z "$passwd" ]; then passwd="123456"; fi
 	if [ -z "$auth" ]; then auth="root:gtn"; fi
@@ -1235,8 +1247,9 @@ exoinjectusers() {
 		return
 	fi
 	local userIndex=$startFrom
+	[ ! -z ${useSSL} ] && local url="https://$host:$port/rest/private/v1/social/users" || local url="http://$host:$port/rest/private/v1/social/users"
 	until [ $userIndex -gt $nbOfUsers ]; do
-		if [ $truenames == "1" ]; then
+		if [ ! -z $truenames ]; then
 			local personJson=$(wget -qO- https://randomuser.me/api/)
 			if [ -z "$personJson" ]; then
 				exoprint_err "Could not get random user details!"
@@ -1248,10 +1261,9 @@ exoinjectusers() {
 			local firstname=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
 			local lastname=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
 		fi
-		local url="http://$host:$port/rest/private/v1/social/users"
 		local data="{\"id\": \"$userIndex\","
 		local username="$userprf$userIndex"
-		[ $formalusernames == "1" ] && username="$(echo $firstname.$lastname| sed 's/./\L&/g')"
+		[ ! -z $formalusernames ] && username="$(echo $firstname.$lastname | sed 's/./\L&/g')"
 		data+="\"username\": \"$username\","
 		data+="\"lastname\": \"$lastname\","
 		data+="\"firstname\": \"$firstname\","
