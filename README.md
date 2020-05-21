@@ -20,7 +20,7 @@ HOW TO INSTALL:
 
     -- exoget:
            Usage:      exoget <tomcat|jboss> <version|latest> [--noclean] : Download eXo platform Instance.
-                       exoget <--reset> : Reset eXo Nexus repository stored credentials.
+                       exoget <--reset> : Reset eXo LDAP stored credentials.
            Note :      <latest> argument  is only available for eXo Tomcat Server Instance
     -- exostart:
            Usage:      exostart: Run eXo platform instance.
@@ -72,7 +72,7 @@ HOW TO INSTALL:
            Usage:      exoupdate: Update eXo-Easy-Shell
     -- exogettribelog:
            Usage:      exogettribelog: Download eXo Tribe log file.
-                       exogettribelog <--reset> : Reset eXo Nexus repository stored credentials.
+                       exogettribelog <--reset> : Reset eXo LDAP stored credentials.
                        exogettribelog <--dev|--preprod|--qa> : Select eXo Tribe Instance.
     -- exosynctribelog:
            Usage:      exosynctribelog [-l <line_numbers>]: Synchronize eXo Tribe log file.
