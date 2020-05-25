@@ -1269,7 +1269,7 @@ exoinjectusers() {
 		fi
 		local data="{\"id\": \"$userIndex\","
 		local username="$usernameprefix$userIndex"
-		$useFormalusernames && local username="$(echo $firstname.$lastname | sed 's/./\L&/g')"
+		$useFormalusernames && local username="$(echo $firstname.$lastname | sed 's/./\L&/g' | sed -E 's/\s+/./g')"
 		data+="\"username\": \"$username\","
 		data+="\"lastname\": \"$lastname\","
 		data+="\"firstname\": \"$firstname\","
