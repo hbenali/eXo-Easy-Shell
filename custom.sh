@@ -1173,7 +1173,7 @@ exoinjectusers() {
 			shift 2
 			;;
 		-u | --usernameprefix)
-		    [ -z "$2" ] && exoprint_err "Missing user name prefix !" && return
+			[ -z "$2" ] && exoprint_err "Missing user name prefix !" && return
 			local usernameprefix="$2"
 			shift 2
 			;;
@@ -1235,7 +1235,13 @@ exoinjectusers() {
 	fi
 	if [ -z "$host" ]; then host="localhost"; fi
 	if [ -z ${port} ]; then
-		$useSSL && port="443" || port="8080"
+		if $useSSL; then
+			port="443"
+		elif [[ "$host" =~ "^(localhost|127.0.0.1)$" ]]; then
+			port="8080"
+		else
+			port="80"
+		fi
 	fi
 	if [ -z "$usernameprefix" ]; then usernameprefix="user"; fi
 	if [ -z "$passwd" ]; then passwd="123456"; fi
@@ -1251,10 +1257,11 @@ exoinjectusers() {
 		exoprint_err "Number of profiles must be a number" >&2
 		return
 	fi
-	((nbOfUsers += $startFrom))
+	local maxIndex=$(($nbOfUsers + $startFrom - 1))
+	local counter=1
 	local userIndex=$startFrom
 	$useSSL && local url="https://$host:$port/rest/private/v1/social/users" || local url="http://$host:$port/rest/private/v1/social/users"
-	until [ $userIndex -gt $nbOfUsers ]; do
+	until [ $userIndex -gt $maxIndex ]; do
 		if $useTruenames; then
 			local personJson=$(wget -qO- https://randomuser.me/api/)
 			if [ -z "$personJson" ]; then
@@ -1263,13 +1270,15 @@ exoinjectusers() {
 			fi
 			local firstname=$(echo $personJson | jq '.results[0].name.first' | tr -d '"')
 			local lastname=$(echo $personJson | jq '.results[0].name.last' | tr -d '"')
+			echo $firstname | grep -qP "^[a-zA-Z éèçà]+$" || continue
+			echo $lastname | grep -qP "^[a-zA-Z éèçà]+$" || continue
 		else
 			local firstname=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
 			local lastname=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
 		fi
 		local data="{\"id\": \"$userIndex\","
 		local username="$usernameprefix$userIndex"
-		$useFormalusernames && local username="$(echo $firstname.$lastname | sed 's/./\L&/g' | sed -E 's/\s+/./g')"
+		$useFormalusernames && username="$(echo $firstname.$lastname | sed 's/./\L&/g' | sed -E 's/\s+/./g' | sed -e 's/ç/c/g' -e 's/à/a/g' -e 's/é/e/g' -e 's/è/e/g')"
 		data+="\"username\": \"$username\","
 		data+="\"lastname\": \"$lastname\","
 		data+="\"firstname\": \"$firstname\","
@@ -1277,10 +1286,12 @@ exoinjectusers() {
 		data+="\"password\": \"$passwd\","
 		data+="\"email\": \"$username@exomail.org\"}"
 		local curlCmd="curl -s -w '%{response_code}' -X POST -u "$auth" -H \"Content-Type: application/json\" --data '$data' $url | grep -o  '[1-4][0-9][0-9]'"
-		printf "Creating user ID=$username, Full Name=\"$(tput setaf 12)$firstname $lastname$(tput init)\"..."
+		local outputmsg="$(tput setaf 2)$counter$(tput init)/$nbOfUsers: ID=\"$(tput setaf 12)$username$(tput init)\", Full Name=\"$(tput setaf 12)$firstname $lastname$(tput init)\" "
+		printf "%.130s" "$outputmsg                                                "
 		local httprs=$(eval $curlCmd)
-		if [[ "$httprs" =~ "200" ]]; then echo -e "$(tput setaf 2)OK$(tput init)"; else echo -e "$(tput setaf 1)Fail$(tput init)"; fi
+		if [[ "$httprs" =~ "200" ]]; then echo -e "[ $(tput setaf 2)OK$(tput init) ]"; else echo -e "[ $(tput setaf 1)Fail$(tput init) ]"; fi
 		userIndex=$(($userIndex + 1))
+		((counter++))
 	done
 }
 
