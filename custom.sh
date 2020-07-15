@@ -996,7 +996,7 @@ exoldapinject() {
 # @Public: Inject Spaces to eXo Server Instance
 exoinjectspaces() {
 	local SHORT=HpscvarU
-	local LONG=host,port,spaceprefix,count,verbose,auth,visibility,registration,uppercase,useSSL
+	local LONG=host,port,spaceprefix,count,verbose,auth,visibility,registration,useUppercase,useSSL
 	if [[ $1 == "-h" ]] || [[ "$1" == "--help" ]]; then
 		usageSpaces
 		return
@@ -1007,6 +1007,8 @@ exoinjectspaces() {
 		#  then getopt has complained about wrong arguments to stdout
 		return
 	fi
+	unset port
+	unset host
 	local useSSL=false
 	local useUppercase=false
 	local re='^[0-9]+$'
@@ -1067,6 +1069,7 @@ exoinjectspaces() {
 			;;
 		esac
 	done
+
 	if [ -z "$nbOfSpaces" ]; then
 		exoprint_err "Missing number of profiles to create (-c)"
 		echo ""
@@ -1074,7 +1077,11 @@ exoinjectspaces() {
 
 	if [ -z "$host" ]; then host="localhost"; fi
 	if [ -z ${port} ]; then
-		$useSSL && port="443" || port="8080"
+		if ${useSSL}; then
+			[[ $host =~ ^(127.0.0.1|localhost) ]] && port="8443" || port="443"
+		else
+			[[ $host =~ ^(127.0.0.1|localhost) ]] && port="8080" || port="80"
+		fi
 	fi
 	if [ -z "$spaceprefix" ]; then spaceprefix="space"; fi
 	if [ -z "$auth" ]; then auth="root:gtn"; fi
@@ -1092,7 +1099,7 @@ exoinjectspaces() {
 	fi
 
 	local spaceIndex=1
-	[ ! -z $useSSL ] && local url="https://$host:$port/rest/private/v1/social/users" || local url="http://$host:$port/rest/private/v1/social/users"
+	$useSSL && local url="https://$host:$port/rest/private/v1/social/spaces" || local url="http://$host:$port/rest/private/v1/social/spaces"
 	until [ $spaceIndex -gt $nbOfSpaces ]; do
 		local displayName=$(head -c 500 /dev/urandom | tr -dc "$saltregex" | fold -w 6 | head -n 1)
 		local data="{\"displayName\": \"$displayName\","
@@ -1105,7 +1112,6 @@ exoinjectspaces() {
 		if [[ "$httprs" =~ "200" ]]; then echo -e "$(tput setaf 2)OK$(tput init)"; else echo -e "$(tput setaf 1)Fail$(tput init)"; fi
 		spaceIndex=$(($spaceIndex + 1))
 	done
-
 }
 
 # @Private: Inject users help
@@ -1235,12 +1241,10 @@ exoinjectusers() {
 	fi
 	if [ -z "$host" ]; then host="localhost"; fi
 	if [ -z ${port} ]; then
-		if $useSSL; then
-			port="443"
-		elif [[ "$host" =~ "^(localhost|127.0.0.1)$" ]]; then
-			port="8080"
+		if ${useSSL}; then
+			[[ $host =~ ^(127.0.0.1|localhost) ]] && port="8443" || port="443"
 		else
-			port="80"
+			[[ $host =~ ^(127.0.0.1|localhost) ]] && port="8080" || port="80"
 		fi
 	fi
 	if [ -z "$usernameprefix" ]; then usernameprefix="user"; fi
