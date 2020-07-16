@@ -276,7 +276,7 @@ exoget() {
 		exoprint_err "There is not server type called $1 !"
 		return
 	fi
-	local SNAPSHOTPLFVERSION="6.0.x-SNAPSHOT"
+	local SNAPSHOTPLFVERSION="6.1.x-SNAPSHOT"
 	if [[ $2 == "latest" ]]; then
 		if [[ $dntype == "jbosseap" ]]; then
 			exoprint_err "There is no SNAPSHOT versions for JBoss Server !"
