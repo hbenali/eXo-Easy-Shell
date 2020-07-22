@@ -1130,6 +1130,7 @@ usageUsers() {
 	echo "    -t| --truenames       Use true name ( require internet connections) Default: unused"
 	echo "    -f| --formalusernames Use formal username (firstname.lastname) Default: unused"
 	echo "    --useSSL              Use https schema."
+	echo "    -A| --avatars         Upload user avatar ( option -t should be enabled)."
 	echo ""
 }
 
@@ -1152,8 +1153,8 @@ usageSpaces() {
 
 # @Public: Inject Users to eXo Server Instance
 exoinjectusers() {
-	local SHORT=HPpscvuaoUtf
-	local LONG=host,port,usernameprefix,count,verbose,userpassword,auth,offset,uppercase,truenames,formalusernames,useSSL
+	local SHORT=AHPpscvuaoUtf
+	local LONG=host,port,usernameprefix,count,verbose,userpassword,auth,offset,uppercase,truenames,formalusernames,useSSL,avatars
 	if [[ $1 == "-h" ]] || [[ "$1" == "--help" ]]; then
 		usageUsers
 		return
@@ -1164,6 +1165,10 @@ exoinjectusers() {
 		return
 	fi
 	local useSSL=false
+	local port=""
+	local host=""
+	local baseurl=""
+	local useAvatars=false
 	local useUppercase=false
 	local useTruenames=false
 	local useFormalusernames=false
@@ -1185,6 +1190,10 @@ exoinjectusers() {
 			;;
 		--useSSL)
 			useSSL=true
+			shift
+			;;
+		-A | --avatars)
+			useAvatars=true
 			shift
 			;;
 		-U | --uppercase)
@@ -1239,6 +1248,13 @@ exoinjectusers() {
 	if $useFormalusernames && [ ! -z "$usernameprefix" ]; then
 		exoprint_warn "Specified userprefix will ignore since the \"--formalusernames\" option is activated!"
 	fi
+	if $useAvatars && ! $useTruenames; then 
+		exoprint_err "You must enable option -t to use avatars"
+		return
+	fi
+	if $useAvatars; then
+       echo "Using avatars is enabled. You must add $(tput setaf 2)exo.portal.uploadhandler.public-restriction=false$(tput init) to exo.properties File"
+	fi
 	if [ -z "$host" ]; then host="localhost"; fi
 	if [ -z ${port} ]; then
 		if ${useSSL}; then
@@ -1264,7 +1280,8 @@ exoinjectusers() {
 	local maxIndex=$(($nbOfUsers + $startFrom - 1))
 	local counter=1
 	local userIndex=$startFrom
-	$useSSL && local url="https://$host:$port/rest/private/v1/social/users" || local url="http://$host:$port/rest/private/v1/social/users"
+	$useSSL && local baseurl="https://$host:$port" || local baseurl="http://$host:$port"
+	url="$baseurl/rest/private/v1/social/users"
 	until [ $userIndex -gt $maxIndex ]; do
 		if $useTruenames; then
 			local personJson=$(wget -qO- https://randomuser.me/api/)
@@ -1294,6 +1311,29 @@ exoinjectusers() {
 		printf "%.130s" "$outputmsg                                                "
 		local httprs=$(eval $curlCmd)
 		if [[ "$httprs" =~ "200" ]]; then echo -e "[ $(tput setaf 2)OK$(tput init) ]"; else echo -e "[ $(tput setaf 1)Fail$(tput init) ]"; fi
+		if [[ "$httprs" =~ "200" ]] && $useAvatars; then 
+		  	printf "Avatar..."
+		    local uploadId=$(date +"%s")
+			curl -s -o /tmp/$uploadId.jpg $(echo $personJson | jq '.results[0].picture.large' | tr -d '"')
+			local uploadCMD="curl -s -w '%{response_code}' -X POST '$baseurl/portal/upload?uploadId=$uploadId&action=upload' -F upload=@/tmp/$uploadId.jpg  | grep -o  '[1-4][0-9][0-9]'"
+            local uploadHTTPRS=$(eval $uploadCMD)
+            if [[ "$uploadHTTPRS" =~ "200" ]]; then 
+			   printf "[ $(tput setaf 2)Uploaded$(tput init) ]...";
+               rm /tmp/$uploadId.jpg &>/dev/null
+			else 
+			   echo -e "[ $(tput setaf 1)Fail$(tput init) ]"
+               rm /tmp/$uploadId.jpg &>/dev/null
+			   continue
+			fi
+			local updateCMD="curl -s -w '%{response_code}' -XPATCH -u '$username:$passwd' '$baseurl/rest/private/v1/social/users/$username' --data-raw 'name=avatar&value=$uploadId' | grep -o  '[1-4][0-9][0-9]'"
+            local updateHTTPRS=$(eval $updateCMD)
+            if [[ "$updateHTTPRS" =~ "204" ]]; then 
+			   echo -e "[ $(tput setaf 2)Updated$(tput init) ]...";
+			else 
+			   echo -e "[ $(tput setaf 1)Fail$(tput init) ]"
+			fi            
+			rm /tmp/$uploadId.jpg &>/dev/null
+		fi
 		userIndex=$(($userIndex + 1))
 		((counter++))
 	done
