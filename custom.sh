@@ -661,26 +661,26 @@ exoclall() {
 
 # @ITOP: Update local reposiitories upstream remote
 exoreorderupstream() {
-    printf "$1 "
-    local orgs="meeds-io exoplatform exodev exo-addons"
-    [ ! -d "$1" ] && exoprint_err "$1 isn't Git Repo!" && return
-    repo="$1"
-    oldremote=$(git --git-dir=$repo/.git --work-tree=$repo remote | xargs)
-    for i in $oldremote; do
-        git --git-dir=$repo/.git --work-tree=$repo remote remove $i
-    done
-    for org in ${orgs}; do
-        if [ ! -z "$(git ls-remote --heads git@github.com:$org/$repo.git 2>/dev/null)" ]; then
-            [[ "$org" =~ ^(meeds-io|exoplatform)$ ]] && git --git-dir=$repo/.git --work-tree=$repo remote add stable git@github.com:$org/$repo.git 2>/dev/null
-            [[ "$org" =~ ^(exoplatform)$ ]] && git --git-dir=$repo/.git --work-tree=$repo remote -v | xargs | grep -q meeds && git --git-dir=$repo/.git --work-tree=$repo remote add stable_old git@github.com:$org/$repo.git
-            [[ "$org" =~ ^(meeds-io|exodev|exo-addons)$ ]] && git --git-dir=$repo/.git --work-tree=$repo remote add dev git@github.com:$org/$repo.git 2>/dev/null
-        fi
-    done
-    git --git-dir=$repo/.git --work-tree=$repo pull --all --tags &>/dev/null
-    git --git-dir=$repo/.git --work-tree=$repo checkout develop -f &>/dev/null || git --git-dir=$repo/.git --work-tree=$repo checkout master -f &>/dev/null
-    git --git-dir=$repo/.git --work-tree=$repo branch --set-upstream-to=dev/$(git --git-dir=$repo/.git --work-tree=$repo branch --show-current) &>/dev/null || git --git-dir=$repo/.git --work-tree=$repo branch --set-upstream-to=stable/$(git --git-dir=$repo/.git --work-tree=$repo branch --show-current) &>/dev/null
-    echo $(git --git-dir=$repo/.git --work-tree=$repo remote | xargs)
-}   
+	printf "$1 "
+	local orgs="meeds-io exoplatform exodev exo-addons"
+	[ ! -d "$1" ] && exoprint_err "$1 isn't Git Repo!" && return
+	repo="$1"
+	oldremote=$(git --git-dir=$repo/.git --work-tree=$repo remote | xargs)
+	for i in $oldremote; do
+		git --git-dir=$repo/.git --work-tree=$repo remote remove $i
+	done
+	for org in ${orgs}; do
+		if [ ! -z "$(git ls-remote --heads git@github.com:$org/$repo.git 2>/dev/null)" ]; then
+			[[ "$org" =~ ^(meeds-io|exoplatform)$ ]] && git --git-dir=$repo/.git --work-tree=$repo remote add stable git@github.com:$org/$repo.git 2>/dev/null
+			[[ "$org" =~ ^(exoplatform)$ ]] && git --git-dir=$repo/.git --work-tree=$repo remote -v | xargs | grep -q meeds && git --git-dir=$repo/.git --work-tree=$repo remote add stable_old git@github.com:$org/$repo.git
+			[[ "$org" =~ ^(meeds-io|exodev|exo-addons)$ ]] && git --git-dir=$repo/.git --work-tree=$repo remote add dev git@github.com:$org/$repo.git 2>/dev/null
+		fi
+	done
+	git --git-dir=$repo/.git --work-tree=$repo pull --all --tags &>/dev/null
+	git --git-dir=$repo/.git --work-tree=$repo checkout develop -f &>/dev/null || git --git-dir=$repo/.git --work-tree=$repo checkout master -f &>/dev/null
+	git --git-dir=$repo/.git --work-tree=$repo branch --set-upstream-to=dev/$(git --git-dir=$repo/.git --work-tree=$repo branch --show-current) &>/dev/null || git --git-dir=$repo/.git --work-tree=$repo branch --set-upstream-to=stable/$(git --git-dir=$repo/.git --work-tree=$repo branch --show-current) &>/dev/null
+	echo $(git --git-dir=$repo/.git --work-tree=$repo remote | xargs)
+}
 
 # @Public: Inject JAR/WAR to selected eXo Server instance
 exodevinject() {
@@ -1107,7 +1107,7 @@ exoinjectspaces() {
 		fi
 	fi
 	if [ -z "$spaceprefix" ]; then spaceprefix="space"; fi
-	if [ -z "$auth" ]; then auth="root:gtn"; fi
+	if [ -z "$auth" ]; then auth="root:password"; fi
 	if [ -z "$visibility" ]; then visibility="public"; fi
 	if [ -z "$registration" ]; then registration="open"; fi
 	local saltregex=""
@@ -1146,7 +1146,7 @@ usageUsers() {
 	echo "    -p| --port            server port Default: 8080"
 	echo "    -u| --usernameprefix  prefix of the injected users Default: user"
 	echo "    -P| --userpassword    password of the injected users Default: 123456"
-	echo "    -a| --auth            Root credentials Default: root:gtn"
+	echo "    -a| --auth            Root credentials Default: root:password"
 	echo "    -c| --count           number of users to create"
 	echo "    -o| --offset          start number of users index to create Default: 1"
 	echo "    -U| --uppercase       Uppercased User Full Name Default: unused"
@@ -1165,7 +1165,7 @@ usageSpaces() {
 	echo "    -H| --host           server hostname Default: localhost"
 	echo "    -p| --port           server port Default: 8080"
 	echo "    -s| --spaceprefix    prefix of the injected spaces Default: space"
-	echo "    -a| --auth           Root credentials Default: root:gtn"
+	echo "    -a| --auth           Root credentials Default: root:password"
 	echo "    -c| --count          number of spaces to create"
 	echo "    -r| --registration   Space registration Default: open"
 	echo "    -v| --visibility     Space visibility Default: public"
@@ -1271,12 +1271,12 @@ exoinjectusers() {
 	if $useFormalusernames && [ ! -z "$usernameprefix" ]; then
 		exoprint_warn "Specified userprefix will ignore since the \"--formalusernames\" option is activated!"
 	fi
-	if $useAvatars && ! $useTruenames; then 
+	if $useAvatars && ! $useTruenames; then
 		exoprint_err "You must enable option -t to use avatars"
 		return
 	fi
 	if $useAvatars; then
-       echo "Using avatars is enabled. You must add $(tput setaf 2)exo.portal.uploadhandler.public-restriction=false$(tput init) to exo.properties File"
+		echo "Using avatars is enabled. You must add $(tput setaf 2)exo.portal.uploadhandler.public-restriction=false$(tput init) to exo.properties File"
 	fi
 	if [ -z "$host" ]; then host="localhost"; fi
 	if [ -z ${port} ]; then
@@ -1288,7 +1288,7 @@ exoinjectusers() {
 	fi
 	if [ -z "$usernameprefix" ]; then usernameprefix="user"; fi
 	if [ -z "$passwd" ]; then passwd="123456"; fi
-	if [ -z "$auth" ]; then auth="root:gtn"; fi
+	if [ -z "$auth" ]; then auth="root:password"; fi
 	if [ -z "$startFrom" ]; then startFrom=1; fi
 	local saltregex=""
 	if ! $useUppercase; then saltregex="a-z"; else saltregex="A-Z"; fi
@@ -1307,11 +1307,16 @@ exoinjectusers() {
 	url="$baseurl/rest/private/v1/social/users"
 	until [ $userIndex -gt $maxIndex ]; do
 		if $useTruenames; then
-			local personJson=$(wget -qO- https://randomuser.me/api/)
-			if [ -z "$personJson" ]; then
-				exoprint_err "Could not get random user details!"
-				return
-			fi
+			local trycount=1
+			local personJson=""
+			while [ -z "$personJson" ] && [ $trycount -le 3 ]; do
+				personJson=$(wget -qO- https://randomuser.me/api/)
+				if [ -z "$personJson" ]; then
+					exoprint_warn "Could not get random user details! Retry ($trycount/3)"
+	            fi
+				((trycount++))
+			done
+			[ -z "$personJson" ] && exoprint_err "Failed to get user details from Random User Rest Api" && return
 			local firstname=$(echo $personJson | jq '.results[0].name.first' | tr -d '"')
 			local lastname=$(echo $personJson | jq '.results[0].name.last' | tr -d '"')
 			echo $firstname | grep -qP "^[a-zA-Z éèçà]+$" || continue
@@ -1334,27 +1339,27 @@ exoinjectusers() {
 		printf "%.130s" "$outputmsg                                                "
 		local httprs=$(eval $curlCmd)
 		if [[ "$httprs" =~ "200" ]]; then echo -e "[ $(tput setaf 2)OK$(tput init) ]"; else echo -e "[ $(tput setaf 1)Fail$(tput init) ]"; fi
-		if [[ "$httprs" =~ "200" ]] && $useAvatars; then 
-		  	printf "Avatar..."
-		    local uploadId=$(date +"%s")
+		if [[ "$httprs" =~ "200" ]] && $useAvatars; then
+			printf "Avatar..."
+			local uploadId=$(date +"%s")
 			curl -s -o /tmp/$uploadId.jpg $(echo $personJson | jq '.results[0].picture.large' | tr -d '"')
 			local uploadCMD="curl -s -w '%{response_code}' -X POST '$baseurl/portal/upload?uploadId=$uploadId&action=upload' -F upload=@/tmp/$uploadId.jpg  | grep -o  '[1-4][0-9][0-9]'"
-            local uploadHTTPRS=$(eval $uploadCMD)
-            if [[ "$uploadHTTPRS" =~ "200" ]]; then 
-			   printf "[ $(tput setaf 2)Uploaded$(tput init) ]...";
-               rm /tmp/$uploadId.jpg &>/dev/null
-			else 
-			   echo -e "[ $(tput setaf 1)Fail$(tput init) ]"
-               rm /tmp/$uploadId.jpg &>/dev/null
-			   continue
+			local uploadHTTPRS=$(eval $uploadCMD)
+			if [[ "$uploadHTTPRS" =~ "200" ]]; then
+				printf "[ $(tput setaf 2)Uploaded$(tput init) ]..."
+				rm /tmp/$uploadId.jpg &>/dev/null
+			else
+				echo -e "[ $(tput setaf 1)Fail$(tput init) ]"
+				rm /tmp/$uploadId.jpg &>/dev/null
+				continue
 			fi
 			local updateCMD="curl -s -w '%{response_code}' -XPATCH -u '$username:$passwd' '$baseurl/rest/private/v1/social/users/$username' --data-raw 'name=avatar&value=$uploadId' | grep -o  '[1-4][0-9][0-9]'"
-            local updateHTTPRS=$(eval $updateCMD)
-            if [[ "$updateHTTPRS" =~ "204" ]]; then 
-			   echo -e "[ $(tput setaf 2)Updated$(tput init) ]...";
-			else 
-			   echo -e "[ $(tput setaf 1)Fail$(tput init) ]"
-			fi            
+			local updateHTTPRS=$(eval $updateCMD)
+			if [[ "$updateHTTPRS" =~ "204" ]]; then
+				echo -e "[ $(tput setaf 2)Updated$(tput init) ]..."
+			else
+				echo -e "[ $(tput setaf 1)Fail$(tput init) ]"
+			fi
 			rm /tmp/$uploadId.jpg &>/dev/null
 		fi
 		userIndex=$(($userIndex + 1))
