@@ -659,6 +659,29 @@ exoclall() {
 	[ -d "$repo" ] && cd $repo
 }
 
+# @ITOP: Update local reposiitories upstream remote
+exoreorderupstream() {
+    printf "$1 "
+    local orgs="meeds-io exoplatform exodev exo-addons"
+    [ ! -d "$1" ] && exoprint_err "$1 isn't Git Repo!" && return
+    repo="$1"
+    oldremote=$(git --git-dir=$repo/.git --work-tree=$repo remote | xargs)
+    for i in $oldremote; do
+        git --git-dir=$repo/.git --work-tree=$repo remote remove $i
+    done
+    for org in ${orgs}; do
+        if [ ! -z "$(git ls-remote --heads git@github.com:$org/$repo.git 2>/dev/null)" ]; then
+            [[ "$org" =~ ^(meeds-io|exoplatform)$ ]] && git --git-dir=$repo/.git --work-tree=$repo remote add stable git@github.com:$org/$repo.git 2>/dev/null
+            [[ "$org" =~ ^(exoplatform)$ ]] && git --git-dir=$repo/.git --work-tree=$repo remote -v | xargs | grep -q meeds && git --git-dir=$repo/.git --work-tree=$repo remote add stable_old git@github.com:$org/$repo.git
+            [[ "$org" =~ ^(meeds-io|exodev|exo-addons)$ ]] && git --git-dir=$repo/.git --work-tree=$repo remote add dev git@github.com:$org/$repo.git 2>/dev/null
+        fi
+    done
+    git --git-dir=$repo/.git --work-tree=$repo pull --all --tags &>/dev/null
+    git --git-dir=$repo/.git --work-tree=$repo checkout develop -f &>/dev/null || git --git-dir=$repo/.git --work-tree=$repo checkout master -f &>/dev/null
+    git --git-dir=$repo/.git --work-tree=$repo branch --set-upstream-to=dev/$(git --git-dir=$repo/.git --work-tree=$repo branch --show-current) &>/dev/null || git --git-dir=$repo/.git --work-tree=$repo branch --set-upstream-to=stable/$(git --git-dir=$repo/.git --work-tree=$repo branch --show-current) &>/dev/null
+    echo $(git --git-dir=$repo/.git --work-tree=$repo remote | xargs)
+}   
+
 # @Public: Inject JAR/WAR to selected eXo Server instance
 exodevinject() {
 	if [[ -z "$1" ]]; then
