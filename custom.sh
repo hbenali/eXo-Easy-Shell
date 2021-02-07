@@ -1176,8 +1176,8 @@ usageSpaces() {
 
 # @Public: Inject Users to eXo Server Instance
 exoinjectusers() {
-	local SHORT=AHPpscvuaoUtf
-	local LONG=host,port,usernameprefix,count,verbose,userpassword,auth,offset,uppercase,truenames,formalusernames,useSSL,avatars
+	local SHORT=ABHPpscvuaoUtf
+	local LONG=host,port,usernameprefix,count,verbose,userpassword,auth,offset,uppercase,truenames,formalusernames,useSSL,avatars,banners
 	if [[ $1 == "-h" ]] || [[ "$1" == "--help" ]]; then
 		usageUsers
 		return
@@ -1192,6 +1192,7 @@ exoinjectusers() {
 	local host=""
 	local baseurl=""
 	local useAvatars=false
+	local useBanners=false
 	local useUppercase=false
 	local useTruenames=false
 	local useFormalusernames=false
@@ -1217,6 +1218,10 @@ exoinjectusers() {
 			;;
 		-A | --avatars)
 			useAvatars=true
+			shift
+			;;
+		-B | --banners)
+			useBanners=true
 			shift
 			;;
 		-U | --uppercase)
@@ -1271,12 +1276,12 @@ exoinjectusers() {
 	if $useFormalusernames && [ ! -z "$usernameprefix" ]; then
 		exoprint_warn "Specified userprefix will ignore since the \"--formalusernames\" option is activated!"
 	fi
-	if $useAvatars && ! $useTruenames; then
+	if ($useAvatars || $useBanners) && ! $useTruenames; then
 		exoprint_err "You must enable option -t to use avatars"
 		return
 	fi
-	if $useAvatars; then
-		echo "Using avatars is enabled. You must add $(tput setaf 2)exo.portal.uploadhandler.public-restriction=false$(tput init) to exo.properties File"
+	if $useAvatars || $useBanners; then
+		echo "Using avatars or banners is enabled. You must add $(tput setaf 2)exo.portal.uploadhandler.public-restriction=false$(tput init) to exo.properties File"
 	fi
 	if [ -z "$host" ]; then host="localhost"; fi
 	if [ -z ${port} ]; then
@@ -1303,6 +1308,7 @@ exoinjectusers() {
 	local maxIndex=$(($nbOfUsers + $startFrom - 1))
 	local counter=1
 	local userIndex=$startFrom
+	local jobs=($(curl -s https://gist.githubusercontent.com/wsc/1083459/raw/d8d0aa8737a36912e6c119a172c8367276b76260/gistfile1.txt | sed "s/ /%20/g" | tr "\n" " "))
 	$useSSL && local baseurl="https://$host:$port" || local baseurl="http://$host:$port"
 	url="$baseurl/rest/private/v1/social/users"
 	until [ $userIndex -gt $maxIndex ]; do
@@ -1313,7 +1319,7 @@ exoinjectusers() {
 				personJson=$(wget -qO- https://randomuser.me/api/)
 				if [ -z "$personJson" ]; then
 					exoprint_warn "Could not get random user details! Retry ($trycount/3)"
-	            fi
+				fi
 				((trycount++))
 			done
 			[ -z "$personJson" ] && exoprint_err "Failed to get user details from Random User Rest Api" && return
@@ -1339,6 +1345,15 @@ exoinjectusers() {
 		printf "%.130s" "$outputmsg                                                "
 		local httprs=$(eval $curlCmd)
 		if [[ "$httprs" =~ "200" ]]; then echo -e "[ $(tput setaf 2)OK$(tput init) ]"; else echo -e "[ $(tput setaf 1)Fail$(tput init) ]"; fi
+		if [ ! -z "$personJson" ]; then
+		    # Extra Info
+			local country=$(echo $personJson | jq '.results[0].location.country' | tr -d '"' | sed "s/ /%20/g")
+			curl -s -XPATCH -u "$username:$passwd" "$baseurl/rest/private/v1/social/users/$username" --data-raw "name=country&value=$country"
+			local city=$(echo $personJson | jq '.results[0].location.city' | tr -d '"' | sed "s/ /%20/g")
+			curl -s -XPATCH -u "$username:$passwd" "$baseurl/rest/private/v1/social/users/$username" --data-raw "name=city&value=$city"
+			local rand=$(($RANDOM % ${#jobs[@]}))
+			curl -s -XPATCH -u "$username:$passwd" "$baseurl/rest/private/v1/social/users/$username" --data-raw "name=position&value=${jobs[$rand]}"
+		fi
 		if [[ "$httprs" =~ "200" ]] && $useAvatars; then
 			printf "Avatar..."
 			local uploadId=$(date +"%s")
@@ -1354,6 +1369,37 @@ exoinjectusers() {
 				continue
 			fi
 			local updateCMD="curl -s -w '%{response_code}' -XPATCH -u '$username:$passwd' '$baseurl/rest/private/v1/social/users/$username' --data-raw 'name=avatar&value=$uploadId' | grep -o  '[1-4][0-9][0-9]'"
+			local updateHTTPRS=$(eval $updateCMD)
+			if [[ "$updateHTTPRS" =~ "204" ]]; then
+				echo -e "[ $(tput setaf 2)Updated$(tput init) ]..."
+			else
+				echo -e "[ $(tput setaf 1)Fail$(tput init) ]"
+			fi
+			rm /tmp/$uploadId.jpg &>/dev/null
+		fi
+		if [[ "$httprs" =~ "200" ]] && $useBanners; then
+			printf "Banner..."
+			local uploadId=$(date +"%s")
+			local categories=("architecture" "network" "nature" "minimal" "sea" "sky" "city" "flower" "butterfly" "building" "buisness" "rail" "rain" "colors" "paint" "happiness" "work" "mojave" "montain" "camping")
+			local rand=$(($RANDOM % ${#categories[@]}))
+			local bannerLinks=($(curl -s -H "Authorization: Client-ID MpXB20XL50XaI6AXm-QDxcEVqmXvnXvb45SfBsG2CTM" "https://api.unsplash.com/search/photos?page=${RANDOM:0:2}&query=${categories[$rand]}" | jq '.results[].urls.regular' | tr -d '"'))
+			if [ -z "${bannerLinks}" ]; then
+				exoprint_err "Banners Gathering api rate limit has been reached. Please try again within an hour."
+				return
+			fi
+			local rand=$(($RANDOM % ${#bannerLinks[@]}))
+			curl -s -o /tmp/$uploadId.jpg "${bannerLinks[$rand]}"
+			local uploadCMD="curl -s -w '%{response_code}' -X POST '$baseurl/portal/upload?uploadId=$uploadId&action=upload' -F upload=@/tmp/$uploadId.jpg  | grep -o  '[1-4][0-9][0-9]'"
+			local uploadHTTPRS=$(eval $uploadCMD)
+			if [[ "$uploadHTTPRS" =~ "200" ]]; then
+				printf "[ $(tput setaf 2)Uploaded$(tput init) ]..."
+				rm /tmp/$uploadId.jpg &>/dev/null
+			else
+				echo -e "[ $(tput setaf 1)Fail$(tput init) ]"
+				rm /tmp/$uploadId.jpg &>/dev/null
+				continue
+			fi
+			local updateCMD="curl -s -w '%{response_code}' -XPATCH -u '$username:$passwd' '$baseurl/rest/private/v1/social/users/$username' --data-raw 'name=banner&value=$uploadId' | grep -o  '[1-4][0-9][0-9]'"
 			local updateHTTPRS=$(eval $updateCMD)
 			if [[ "$updateHTTPRS" =~ "204" ]]; then
 				echo -e "[ $(tput setaf 2)Updated$(tput init) ]..."
