@@ -270,21 +270,22 @@ exoget() {
 	[ $? -eq 1 ] && return
 	if [[ $1 == "tomcat" ]]; then
 		dntype="tomcat"
+		shift
 	elif [[ $1 == "jboss" ]] || [[ $1 == "jbossep" ]] || [[ $1 == "jbosseap" ]]; then
 		dntype="jbosseap"
+		shift
 	else
-		exoprint_err "There is not server type called $1 !"
-		return
+		dntype="tomcat"
 	fi
 	local SNAPSHOTPLFVERSION="6.2.x-SNAPSHOT"
-	if [[ $2 == "latest" ]]; then
+	if [[ $1 == "latest" ]]; then
 		if [[ $dntype == "jbosseap" ]]; then
 			exoprint_err "There is no SNAPSHOT versions for JBoss Server !"
 			return
 		fi
 		dnversion=$SNAPSHOTPLFVERSION
 	else
-		dnversion="$2"
+		dnversion="$1"
 	fi
 	local SRVURI="repository.exoplatform.org/content/groups/private/com/exoplatform/platform/distributions/plf-enterprise-$dntype-standalone/$dnversion"
 	local ZIPFILENAME="plf-enterprise-$dntype-standalone-$dnversion.zip"
