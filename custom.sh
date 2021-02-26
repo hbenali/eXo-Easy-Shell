@@ -1390,13 +1390,18 @@ exoinjectusers() {
 		if [[ "$httprs" =~ "200" ]] && $useBanners; then
 			printf "Banner..."
 			local uploadId=$(date +"%s")
+			local trycount="1" 
 			local categories=("architecture" "network" "nature" "minimal" "sea" "sky" "city" "flower" "butterfly" "building" "buisness" "rail" "rain" "colors" "paint" "happiness" "work" "mojave" "montain" "camping")
 			local rand=$(($RANDOM % ${#categories[@]}))
 			local bannerLinks=($(curl -s -H "Authorization: Client-ID MpXB20XL50XaI6AXm-QDxcEVqmXvnXvb45SfBsG2CTM" "https://api.unsplash.com/search/photos?page=${RANDOM:0:2}&query=${categories[$rand]}" | jq '.results[].urls.regular' | tr -d '"'))
-			if [ -z "${bannerLinks}" ]; then
-				exoprint_err "Banners Gathering api rate limit has been reached. Please try again within an hour."
-				return
-			fi
+			while [ -z "${bannerLinks}" ] && [ $trycount -le 3 ]; do
+			    bannerLinks=($(curl -s -H "Authorization: Client-ID MpXB20XL50XaI6AXm-QDxcEVqmXvnXvb45SfBsG2CTM" "https://api.unsplash.com/search/photos?page=${RANDOM:0:2}&query=${categories[$rand]}" | jq '.results[].urls.regular' | tr -d '"'))
+				if [ -z "${bannerLinks}" ]; then
+   			  	   exoprint_warn "Could not get Banner! Retry ($trycount/3)"
+				fi
+				((trycount++))
+			done
+			[ -z "${bannerLinks}" ] && continue
 			local rand=$(($RANDOM % ${#bannerLinks[@]}))
 			curl -s -o /tmp/$uploadId.jpg "${bannerLinks[$rand]}"
 			local uploadCMD="curl -s -w '%{response_code}' -X POST '$baseurl/portal/upload?uploadId=$uploadId&action=upload' -F upload=@/tmp/$uploadId.jpg  | grep -o  '[1-4][0-9][0-9]'"
