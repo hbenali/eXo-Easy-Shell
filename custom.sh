@@ -1163,6 +1163,7 @@ usageUsers() {
 	echo "    -f| --formalusernames Use formal username (firstname.lastname) Default: unused"
 	echo "    --useSSL              Use https schema."
 	echo "    -A| --avatars         Upload user avatar ( option -t should be enabled)."
+	echo "    -B| --banners         Upload user banner ( option -t should be enabled + Require unsplash token)."
 	echo ""
 }
 
